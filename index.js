@@ -14,7 +14,6 @@ app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.nzorc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -37,7 +36,12 @@ async function run() {
         res.send(result);
       });
 
-    
+      //   get data from db
+      app.get("/all-volunteer", async (req, res) => {
+        const result = await voulenteerCollection.find().toArray();
+        res.send(result);
+      });
+
       await client.connect();
       console.log("Connected to MongoDB successfully!");
     } catch (error) {
