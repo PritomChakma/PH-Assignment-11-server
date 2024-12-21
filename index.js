@@ -42,6 +42,16 @@ async function run() {
         res.send(result);
       });
 
+      //   get post for specific user
+      app.get("/post/:email", async (req, res) => {
+        const email = req.params.email;
+        const filter = {
+          "volunteer.email": email,
+        };
+        const result = await voulenteerCollection.find(filter).toArray();
+        res.send(result);
+      });
+
       await client.connect();
       console.log("Connected to MongoDB successfully!");
     } catch (error) {
