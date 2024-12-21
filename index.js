@@ -60,6 +60,30 @@ async function run() {
         res.send(result);
       });
 
+      app.get("/update/:id", async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+
+        const result = await voulenteerCollection.findOne(query);
+        res.send(result);
+      });
+      // update on data
+      app.put("/updatedJob/:id", async (req, res) => {
+        const id = req.params.id;
+        const data = req.body;
+        const query = { _id: new ObjectId(id) };
+        const updated = {
+          $set: data,
+        };
+        const options = { upsert: true };
+        const result = await voulenteerCollection.updateOne(
+          query,
+          updated,
+          options
+        );
+        res.send(result);
+      });
+
       await client.connect();
       console.log("Connected to MongoDB successfully!");
     } catch (error) {
