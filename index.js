@@ -27,6 +27,7 @@ async function run() {
     try {
       const db = client.db("voulenteer-db");
       const voulenteerCollection = db.collection("voulenteer");
+      const requestCollection = db.collection("request");
 
       // Save data to Voulenteer
       app.post("/add-post", async (req, res) => {
@@ -63,7 +64,6 @@ async function run() {
       app.get("/update/:id", async (req, res) => {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
-
         const result = await voulenteerCollection.findOne(query);
         res.send(result);
       });
@@ -81,6 +81,14 @@ async function run() {
           updated,
           options
         );
+        res.send(result);
+      });
+
+      //  Request Collection
+      app.post("/add-request", async (req, res) => {
+        const request = req.body;
+        console.log(request);
+        const result = await requestCollection.insertOne(request);
         res.send(result);
       });
 
