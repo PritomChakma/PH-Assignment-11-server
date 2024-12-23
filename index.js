@@ -1,12 +1,19 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
 
+const corsOption = {
+  origin: ["http://localhost:5174"],
+  credentials: true,
+  optionalSuccessStatus: 200,
+};
+
 // middleware
-app.use(cors());
+app.use(cors(corsOption));
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.nzorc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -25,6 +32,33 @@ async function run() {
       const db = client.db("voulenteer-db");
       const voulenteerCollection = db.collection("voulenteer");
       const requestCollection = db.collection("request");
+
+      // JWT
+      app.post("/jwt", async (req, res) => {
+        const email = req.body;
+        const token = jwt.sign(email, process.env.SECRET_TOKEN, {
+          expiresIn: "365d",
+        });
+        console.log(token);
+        res
+          .cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          })
+          .send({ success: true });
+      });
+
+      // clear cookie
+      app.get("/logout", async (req, res) => {
+        res
+          .clearCookie("token", {
+            maxAge: 0,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          })
+          .send({ success: true });
+      });
 
       app.post("/add-post", async (req, res) => {
         const data = req.body;
@@ -88,26 +122,38 @@ async function run() {
 
       app.post("/add-request", async (req, res) => {
         const request = req.body;
+        const query = { _id: new ObjectId(request.postId) };
+        const query2 = { email: request.email };
+        const alreadyExist = await voulenteerCollection.findOne(query);
+        const requestExist = await requestCollection.findOne(query2);
 
-        const query = { email: request.email, requestId: request.requestId };
-        const alreadyExist = await requestCollection.findOne(query);
-        if (alreadyExist) {
+        if (requestExist) {
           return res
             .status(400)
             .send("You are already submit on this volunteer");
+        } else if (parseInt(alreadyExist.noofvolunteer) === 0) {
+          return res.status(400).send("volunteer lagbe na");
         }
-        console.log(request);
-        const result = await requestCollection.insertOne(request);
-        const filter = { _id: new ObjectId(request.requestId) };
-        const update = {
-          $inc: { noofvolunteer: -1 },
-        };
-        const updateRequest = await voulenteerCollection.updateOne(
-          filter,
-          update
-        );
-        console.log(updateRequest);
-        res.send(result);
+
+        const inserted = await requestCollection.insertOne(request);
+        const noOfV = parseInt(alreadyExist.noofvolunteer) - 1;
+        const updateDocument = {
+          $set: {
+            noofvolunteer: noOfV,
+          },
+       };
+        const updated = await voulenteerCollection.updateOne(query,updateDocument);
+ 
+
+        // const filter = { _id: new ObjectId(request.postId) };
+        // const update = {
+        //   $inc: { noofvolunteer: -1 },
+        // };
+        // const updateRequest = await voulenteerCollection.updateOne(
+        //   filter,
+        //   update
+        // );
+        res.send(updated);
       });
 
       await client.connect();
