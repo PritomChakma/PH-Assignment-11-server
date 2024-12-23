@@ -120,40 +120,7 @@ async function run() {
         res.send(result);
       });
 
-      // app.post("/add-request", async (req, res) => {
-      //   const request = req.body;
-      //   const query = { _id: new ObjectId(request.postId) };
-      //   const query2 = { email: request.email };
-      //   const alreadyExist = await voulenteerCollection.findOne(query);
-      //   const requestExist = await requestCollection.findOne(query2);
-
-      //   if (requestExist) {
-      //     return res
-      //       .status(400)
-      //       .send("You are already submit on this volunteer");
-      //   } else if (parseInt(alreadyExist.noofvolunteer) === 0) {
-      //     return res.status(400).send("volunteer lagbe na");
-      //   }
-
-      //   const inserted = await requestCollection.insertOne(request);
-      //   const noOfV = parseInt(alreadyExist.noofvolunteer) - 1;
-      //   const updateDocument = {
-      //     $set: {
-      //       noofvolunteer: noOfV,
-      //     },
-      //  };
-      //   const updated = await voulenteerCollection.updateOne(query,updateDocument);
-
-      //   // const filter = { _id: new ObjectId(request.postId) };
-      //   // const update = {
-      //   //   $inc: { noofvolunteer: -1 },
-      //   // };
-      //   // const updateRequest = await voulenteerCollection.updateOne(
-      //   //   filter,
-      //   //   update
-      //   // );
-      //   res.send(updated);
-      // });
+  
 
       app.post("/add-request", async (req, res) => {
         const request = req.body;
@@ -164,14 +131,14 @@ async function run() {
           const alreadyExist = await voulenteerCollection.findOne(query);
           const requestExist = await requestCollection.findOne(query2);
 
-          // Check if the user has already submitted for this specific post
+
           if (requestExist) {
             return res
               .status(400)
               .send("You have already submitted for this volunteer post.");
           }
 
-          // Check if volunteers are still needed for the post
+    
           if (parseInt(alreadyExist.noofvolunteer) === 0) {
             return res.status(400).send("No volunteers needed for this post.");
           }
@@ -179,7 +146,7 @@ async function run() {
           // Insert the request
           const inserted = await requestCollection.insertOne(request);
 
-          // Update the number of volunteers needed for the post
+ 
           const noOfV = parseInt(alreadyExist.noofvolunteer) - 1;
           const updateDocument = {
             $set: {
@@ -198,7 +165,7 @@ async function run() {
         }
       });
 
-      // request for be a vouleenter
+
       app.get("/request/:email", async (req, res) => {
         const email = req.params.email;
         try {
@@ -212,18 +179,33 @@ async function run() {
       });
 
       app.get("/vouleenter-request/:email", async (req, res) => {
+        const isVolunteer = req.query.volunteer;
+        console.log(isVolunteer);
         const email = req.params.email;
-        const filter = {
-          volunteer: email,
-        };
+        let filter = {};
+        if (isVolunteer) {
+ 
+          filter.volunteer = email;
+        } else {
+  
+          filter.email = email;
+        }
         const result = await requestCollection.find(filter).toArray();
         res.send(result);
       });
 
-      app.delete("/request/:id", async (req, res) => {
+    
+
+      // update status
+      app.patch("/reqStatus-update/:id", async (req, res) => {
         const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await requestCollection.deleteOne(query);
+        const { status } = req.body;
+
+        const filter = { _id: new ObjectId(id) };
+        const updated = {
+          $set: { status },
+        };
+        const result = await requestCollection.updateOne(filter, updated);
         res.send(result);
       });
 
