@@ -9,9 +9,6 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// VolunteerManagement
-// hkLIWYSeOICyIWuZ
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.nzorc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -29,7 +26,6 @@ async function run() {
       const voulenteerCollection = db.collection("voulenteer");
       const requestCollection = db.collection("request");
 
-      // Save data to Voulenteer
       app.post("/add-post", async (req, res) => {
         const data = req.body;
         console.log(data);
@@ -37,13 +33,20 @@ async function run() {
         res.send(result);
       });
 
-      //   get data from db
       app.get("/all-volunteer", async (req, res) => {
-        const result = await voulenteerCollection.find().toArray();
-        res.send(result);
+        const search = req.query.title;
+        try {
+          const query = search
+            ? { title: { $regex: search, $options: "i" } }
+            : {};
+          const result = await voulenteerCollection.find(query).toArray();
+          res.send(result);
+        } catch (error) {
+          console.error("Error fetching volunteers:", error);
+          res.status(500).send("Server error");
+        }
       });
 
-      //   get post for specific user
       app.get("/post/:email", async (req, res) => {
         const email = req.params.email;
         const filter = {
@@ -53,7 +56,6 @@ async function run() {
         res.send(result);
       });
 
-      //   delete
       app.delete("/post/:id", async (req, res) => {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
@@ -67,7 +69,7 @@ async function run() {
         const result = await voulenteerCollection.findOne(query);
         res.send(result);
       });
-      // update on data
+
       app.put("/updatedJob/:id", async (req, res) => {
         const id = req.params.id;
         const data = req.body;
@@ -84,11 +86,27 @@ async function run() {
         res.send(result);
       });
 
-      //  Request Collection
       app.post("/add-request", async (req, res) => {
         const request = req.body;
+
+        const query = { email: request.email, requestId: request.requestId };
+        const alreadyExist = await requestCollection.findOne(query);
+        if (alreadyExist) {
+          return res
+            .status(400)
+            .send("You are already submit on this volunteer");
+        }
         console.log(request);
         const result = await requestCollection.insertOne(request);
+        const filter = { _id: new ObjectId(request.requestId) };
+        const update = {
+          $inc: { noofvolunteer: -1 },
+        };
+        const updateRequest = await voulenteerCollection.updateOne(
+          filter,
+          update
+        );
+        console.log(updateRequest);
         res.send(result);
       });
 
@@ -100,7 +118,6 @@ async function run() {
   }
   run().catch(console.dir);
 
-  // Keep the server running
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);
   });
