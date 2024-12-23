@@ -7,7 +7,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 const corsOption = {
-  origin: ["http://localhost:5174"],
+  origin: ["http://localhost:5173"],
   credentials: true,
   optionalSuccessStatus: 200,
 };
@@ -39,7 +39,7 @@ async function run() {
         const token = jwt.sign(email, process.env.SECRET_TOKEN, {
           expiresIn: "365d",
         });
-        console.log(token);
+        // console.log(token);
         res
           .cookie("token", token, {
             httpOnly: true,
@@ -104,7 +104,7 @@ async function run() {
         res.send(result);
       });
 
-      app.put("/updatedJob/:id", async (req, res) => {
+      app.put("/updatedPost/:id", async (req, res) => {
         const id = req.params.id;
         const data = req.body;
         const query = { _id: new ObjectId(id) };
@@ -120,41 +120,105 @@ async function run() {
         res.send(result);
       });
 
+      // app.post("/add-request", async (req, res) => {
+      //   const request = req.body;
+      //   const query = { _id: new ObjectId(request.postId) };
+      //   const query2 = { email: request.email };
+      //   const alreadyExist = await voulenteerCollection.findOne(query);
+      //   const requestExist = await requestCollection.findOne(query2);
+
+      //   if (requestExist) {
+      //     return res
+      //       .status(400)
+      //       .send("You are already submit on this volunteer");
+      //   } else if (parseInt(alreadyExist.noofvolunteer) === 0) {
+      //     return res.status(400).send("volunteer lagbe na");
+      //   }
+
+      //   const inserted = await requestCollection.insertOne(request);
+      //   const noOfV = parseInt(alreadyExist.noofvolunteer) - 1;
+      //   const updateDocument = {
+      //     $set: {
+      //       noofvolunteer: noOfV,
+      //     },
+      //  };
+      //   const updated = await voulenteerCollection.updateOne(query,updateDocument);
+
+      //   // const filter = { _id: new ObjectId(request.postId) };
+      //   // const update = {
+      //   //   $inc: { noofvolunteer: -1 },
+      //   // };
+      //   // const updateRequest = await voulenteerCollection.updateOne(
+      //   //   filter,
+      //   //   update
+      //   // );
+      //   res.send(updated);
+      // });
+
       app.post("/add-request", async (req, res) => {
         const request = req.body;
         const query = { _id: new ObjectId(request.postId) };
-        const query2 = { email: request.email };
-        const alreadyExist = await voulenteerCollection.findOne(query);
-        const requestExist = await requestCollection.findOne(query2);
+        const query2 = { email: request.email, postId: request.postId };
 
-        if (requestExist) {
-          return res
-            .status(400)
-            .send("You are already submit on this volunteer");
-        } else if (parseInt(alreadyExist.noofvolunteer) === 0) {
-          return res.status(400).send("volunteer lagbe na");
+        try {
+          const alreadyExist = await voulenteerCollection.findOne(query);
+          const requestExist = await requestCollection.findOne(query2);
+
+          // Check if the user has already submitted for this specific post
+          if (requestExist) {
+            return res
+              .status(400)
+              .send("You have already submitted for this volunteer post.");
+          }
+
+          // Check if volunteers are still needed for the post
+          if (parseInt(alreadyExist.noofvolunteer) === 0) {
+            return res.status(400).send("No volunteers needed for this post.");
+          }
+
+          // Insert the request
+          const inserted = await requestCollection.insertOne(request);
+
+          // Update the number of volunteers needed for the post
+          const noOfV = parseInt(alreadyExist.noofvolunteer) - 1;
+          const updateDocument = {
+            $set: {
+              noofvolunteer: noOfV,
+            },
+          };
+          const updated = await voulenteerCollection.updateOne(
+            query,
+            updateDocument
+          );
+
+          res.send(updated);
+        } catch (err) {
+          console.error("Error processing volunteer request:", err);
+          res.status(500).send("Server error occurred.");
         }
-
-        const inserted = await requestCollection.insertOne(request);
-        const noOfV = parseInt(alreadyExist.noofvolunteer) - 1;
-        const updateDocument = {
-          $set: {
-            noofvolunteer: noOfV,
-          },
-       };
-        const updated = await voulenteerCollection.updateOne(query,updateDocument);
- 
-
-        // const filter = { _id: new ObjectId(request.postId) };
-        // const update = {
-        //   $inc: { noofvolunteer: -1 },
-        // };
-        // const updateRequest = await voulenteerCollection.updateOne(
-        //   filter,
-        //   update
-        // );
-        res.send(updated);
       });
+
+      // request for be a vouleenter
+      app.get("/request/:email", async (req, res) => {
+        const email = req.params.email;
+        try {
+          // Find requests for the given email
+          const result = await requestCollection.find({ email }).toArray();
+          res.send(result);
+        } catch (error) {
+          console.error("Error fetching requests:", error);
+          res.status(500).send("Failed to fetch requests");
+        }
+      });
+
+
+      app.delete("/request/:id", async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await requestCollection.deleteOne(query);
+        res.send(result);
+      });
+
 
       await client.connect();
       console.log("Connected to MongoDB successfully!");
