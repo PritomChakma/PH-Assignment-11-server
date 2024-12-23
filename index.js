@@ -211,6 +211,14 @@ async function run() {
         }
       });
 
+      app.get("/vouleenter-request/:email", async (req, res) => {
+        const email = req.params.email;
+        const filter = {
+          volunteer: email,
+        };
+        const result = await requestCollection.find(filter).toArray();
+        res.send(result);
+      });
 
       app.delete("/request/:id", async (req, res) => {
         const id = req.params.id;
@@ -218,7 +226,6 @@ async function run() {
         const result = await requestCollection.deleteOne(query);
         res.send(result);
       });
-
 
       await client.connect();
       console.log("Connected to MongoDB successfully!");
