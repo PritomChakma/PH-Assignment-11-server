@@ -1,6 +1,7 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 require("dotenv").config();
 const cors = require("cors");
 const app = express();
@@ -15,6 +16,7 @@ const corsOption = {
 // middleware
 app.use(cors(corsOption));
 app.use(express.json());
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.nzorc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -25,6 +27,21 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+// verifyToken
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).send({ message: "unauthorized access" });
+  jwt.verify(token, process.env.SECRET_TOKEN, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    req.user = decoded;
+  });
+
+  next();
+};
+
 
 async function run() {
   async function run() {
@@ -81,8 +98,11 @@ async function run() {
         }
       });
 
-      app.get("/post/:email", async (req, res) => {
+      app.get("/post/:email",verifyToken, async (req, res) => {
         const email = req.params.email;
+        const decodedEmail = req.user?.email;
+        if (decodedEmail !== email)
+          return res.status(401).send({ message: "unauthorized access" });
         const filter = {
           "volunteer.email": email,
         };
@@ -90,21 +110,21 @@ async function run() {
         res.send(result);
       });
 
-      app.delete("/post/:id", async (req, res) => {
+      app.delete("/post/:id",verifyToken, async (req, res) => {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
         const result = await voulenteerCollection.deleteOne(query);
         res.send(result);
       });
 
-      app.get("/update/:id", async (req, res) => {
+      app.get("/update/:id",verifyToken, async (req, res) => {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
         const result = await voulenteerCollection.findOne(query);
         res.send(result);
       });
 
-      app.put("/updatedPost/:id", async (req, res) => {
+      app.put("/updatedPost/:id",verifyToken, async (req, res) => {
         const id = req.params.id;
         const data = req.body;
         const query = { _id: new ObjectId(id) };
@@ -120,9 +140,7 @@ async function run() {
         res.send(result);
       });
 
-  
-
-      app.post("/add-request", async (req, res) => {
+      app.post("/add-request",verifyToken, async (req, res) => {
         const request = req.body;
         const query = { _id: new ObjectId(request.postId) };
         const query2 = { email: request.email, postId: request.postId };
@@ -131,14 +149,12 @@ async function run() {
           const alreadyExist = await voulenteerCollection.findOne(query);
           const requestExist = await requestCollection.findOne(query2);
 
-
           if (requestExist) {
             return res
               .status(400)
               .send("You have already submitted for this volunteer post.");
           }
 
-    
           if (parseInt(alreadyExist.noofvolunteer) === 0) {
             return res.status(400).send("No volunteers needed for this post.");
           }
@@ -146,7 +162,6 @@ async function run() {
           // Insert the request
           const inserted = await requestCollection.insertOne(request);
 
- 
           const noOfV = parseInt(alreadyExist.noofvolunteer) - 1;
           const updateDocument = {
             $set: {
@@ -165,11 +180,13 @@ async function run() {
         }
       });
 
-
-      app.get("/request/:email", async (req, res) => {
+      app.get("/request/:email",verifyToken, async (req, res) => {
         const email = req.params.email;
+        const decodedEmail = req.user?.email;
+        if (decodedEmail !== email)
+          return res.status(401).send({ message: "unauthorized access" });
         try {
-          // Find requests for the given email
+        
           const result = await requestCollection.find({ email }).toArray();
           res.send(result);
         } catch (error) {
@@ -178,26 +195,25 @@ async function run() {
         }
       });
 
-      app.get("/vouleenter-request/:email", async (req, res) => {
+      app.get("/vouleenter-request/:email", verifyToken, async (req, res) => {
         const isVolunteer = req.query.volunteer;
-        console.log(isVolunteer);
         const email = req.params.email;
+        const decodedEmail = req.user?.email;
+        if (decodedEmail !== email)
+          return res.status(401).send({ message: "unauthorized access" });
+
         let filter = {};
         if (isVolunteer) {
- 
           filter.volunteer = email;
         } else {
-  
           filter.email = email;
         }
         const result = await requestCollection.find(filter).toArray();
         res.send(result);
       });
 
-    
-
       // update status
-      app.patch("/reqStatus-update/:id", async (req, res) => {
+      app.patch("/reqStatus-update/:id",verifyToken, async (req, res) => {
         const id = req.params.id;
         const { status } = req.body;
 
